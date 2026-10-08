@@ -30,6 +30,16 @@ typedef struct DiplomatWrite {
     bool (*grow)(struct DiplomatWrite*, size_t);
 } DiplomatWrite;
 
+typedef struct DiplomatWrite16 {
+    void* context;
+    char16_t* buf;
+    size_t len;
+    size_t cap;
+    bool grow_failed;
+    void (*flush)(struct DiplomatWrite16*);
+    bool (*grow)(struct DiplomatWrite16*, size_t);
+} DiplomatWrite16;
+
 bool diplomat_is_str(const char* buf, size_t len);
 
 #define MAKE_SLICES(name, c_ty) \

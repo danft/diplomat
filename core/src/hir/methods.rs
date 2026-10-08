@@ -93,6 +93,10 @@ impl CallbackInstantiationFunctionality for NoCallback {
 pub enum SuccessType<P: super::TyPosition = OutputOnly> {
     /// Conceptually returns a string, which gets written to the `write: DiplomatWrite` argument
     Write,
+    /// Conceptually returns a UTF-16 string, which gets written to the `write: DiplomatWrite16` argument.
+    ///
+    /// Only produced for backends that support `utf16_writes`.
+    Write16,
     /// A Diplomat type. Some types can be outputs, but not inputs, which is expressed by the `OutType` parameter.
     OutType(Type<P>),
     /// A `()` type in Rust.
@@ -146,6 +150,16 @@ impl<P: crate::hir::TyPosition> SuccessType<P> {
         matches!(self, SuccessType::Write)
     }
 
+    /// Returns whether the variant is `Write16`.
+    pub fn is_write16(&self) -> bool {
+        matches!(self, SuccessType::Write16)
+    }
+
+    /// Returns whether the variant is `Write` or `Write16`.
+    pub fn is_any_write(&self) -> bool {
+        matches!(self, SuccessType::Write | SuccessType::Write16)
+    }
+
     /// Returns whether the variant is `Unit`.
     pub fn is_unit(&self) -> bool {
         matches!(self, SuccessType::Unit)
@@ -177,7 +191,7 @@ impl ReturnType {
     pub fn is_ffi_unit(&self) -> bool {
         matches!(
             self,
-            ReturnType::Infallible(SuccessType::Unit | SuccessType::Write)
+            ReturnType::Infallible(SuccessType::Unit | SuccessType::Write | SuccessType::Write16)
         )
     }
 

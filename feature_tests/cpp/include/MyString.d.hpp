@@ -48,6 +48,17 @@ public:
   template<typename W>
   inline void get_str_write(W& writeable_output) const;
 
+  inline std::u16string get_str16() const;
+  template<typename W>
+  inline void get_str16_write(W& writeable_output) const;
+
+  /**
+   * Writes the string as UTF-16, or returns `None` if it is empty.
+   */
+  inline std::optional<std::u16string> get_str16_nonempty() const;
+  template<typename W>
+  inline std::optional<std::monostate> get_str16_nonempty_write(W& writeable_output) const;
+
   inline static std::string_view get_static_str();
 
   inline static somelib::diplomat::result<std::string, somelib::diplomat::Utf8Error> string_transform(std::string_view foo);

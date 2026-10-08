@@ -52,6 +52,16 @@ typedef struct DiplomatWrite {
     bool (*grow)(struct DiplomatWrite*, size_t);
 } DiplomatWrite;
 
+typedef struct DiplomatWrite16 {
+    void* context;
+    char16_t* buf;
+    size_t len;
+    size_t cap;
+    bool grow_failed;
+    void (*flush)(struct DiplomatWrite16*);
+    bool (*grow)(struct DiplomatWrite16*, size_t);
+} DiplomatWrite16;
+
 bool diplomat_is_str(const char* buf, size_t len);
 
 #define MAKE_SLICES(name, c_ty) \
@@ -140,6 +150,52 @@ template<typename T> struct WriteTrait {
 template<> struct WriteTrait<std::string> {
   static inline capi::DiplomatWrite Construct(std::string& t) {
     return diplomat::WriteFromString(t);
+  }
+};
+
+extern "C" inline void _flush16(capi::DiplomatWrite16* w) {
+  std::u16string* string = reinterpret_cast<std::u16string*>(w->context);
+  string->resize(w->len);
+}
+
+extern "C" inline bool _grow16_impl(capi::DiplomatWrite16* w, uintptr_t requested) {
+  std::u16string* string = reinterpret_cast<std::u16string*>(w->context);
+  string->resize(requested);
+  w->cap = string->length();
+  w->buf = &(*string)[0];
+  return true;
+}
+
+extern "C" inline bool _grow16(capi::DiplomatWrite16* w, size_t requested) {
+  return _grow16_impl(w, static_cast<uintptr_t>(requested));
+}
+
+inline capi::DiplomatWrite16 WriteFromU16String(std::u16string& string) {
+  capi::DiplomatWrite16 w;
+  w.context = &string;
+  w.buf = &string[0];
+  w.len = string.length();
+  w.cap = string.length();
+  // Will never become true, as _grow16 is infallible.
+  w.grow_failed = false;
+  w.flush = _flush16;
+  w.grow = _grow16;
+  return w;
+}
+
+// The UTF-16 counterpart of WriteTrait, used by _write() methods
+// that write UTF-16 (i.e. which take a DiplomatWrite16 on the Rust side).
+// To write to a custom UTF-16 string type, write a specialized
+// `Write16Trait<YourType>` (see Write16Trait<std::u16string> below)
+// that is capable of constructing a DiplomatWrite16.
+template<typename T> struct Write16Trait {
+  // Fill in this method on a specialization to implement this trait
+  // static inline capi::DiplomatWrite16 Construct(T& t);
+};
+
+template<> struct Write16Trait<std::u16string> {
+  static inline capi::DiplomatWrite16 Construct(std::u16string& t) {
+    return diplomat::WriteFromU16String(t);
   }
 };
 

@@ -32,4 +32,24 @@ int main(int argc, char* argv[]) {
         float_vec_b.get()
     };
     simple_assert_eq("Include other opaque", MyString::other_opaque_type(diplomat::span<const Float64Vec*>(array_of_vec, 2)), "Float64Vec([1.0, 2.0, 3.0])Float64Vec([4.5, 6.2, 3.4])");
+
+    // UTF-16 writes (DiplomatWrite16)
+    {
+        auto s = MyString::new_("Tëst 😀 string");
+        simple_assert("UTF-16 write", s->get_str16() == u"Tëst 😀 string");
+
+        std::u16string out;
+        s->get_str16_write(out);
+        simple_assert("UTF-16 generic write", out == u"Tëst 😀 string");
+
+        std::string long_str(1000, 'x');
+        auto long_s = MyString::new_(long_str);
+        simple_assert("UTF-16 write with growth", long_s->get_str16() == std::u16string(1000, u'x'));
+
+        auto nonempty = s->get_str16_nonempty();
+        simple_assert("UTF-16 optional write (Some)", nonempty.has_value() && *nonempty == u"Tëst 😀 string");
+
+        auto empty = MyString::new_("");
+        simple_assert("UTF-16 optional write (None)", !empty->get_str16_nonempty().has_value());
+    }
 }

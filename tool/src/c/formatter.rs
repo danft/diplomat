@@ -289,6 +289,10 @@ impl<'tcx> CFormatter<'tcx> {
         self.diplomat_namespace("DiplomatWrite".into())
     }
 
+    pub(crate) fn fmt_write16_name(&self) -> Cow<'tcx, str> {
+        self.diplomat_namespace("DiplomatWrite16".into())
+    }
+
     pub(crate) fn fmt_str_view_name(&self, encoding: StringEncoding) -> Cow<'tcx, str> {
         self.diplomat_namespace(
             match encoding {

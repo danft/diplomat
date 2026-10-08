@@ -1,7 +1,9 @@
 #[diplomat::bridge]
 pub mod ffi {
     use crate::result::ffi::ErrorEnum;
-    use diplomat_runtime::{DiplomatStr, DiplomatStr16Slice, DiplomatStrSlice, DiplomatWrite};
+    use diplomat_runtime::{
+        DiplomatStr, DiplomatStr16Slice, DiplomatStrSlice, DiplomatWrite, DiplomatWrite16,
+    };
     use std::fmt::Write as _;
 
     #[diplomat::opaque_mut]
@@ -43,6 +45,21 @@ pub mod ffi {
         #[diplomat::attr(auto, getter = "str")]
         pub fn get_str(&self, write: &mut DiplomatWrite) {
             let _infallible = write!(write, "{}", self.0);
+        }
+
+        #[diplomat::cfg(supports = utf16_writes)]
+        pub fn get_str16(&self, write: &mut DiplomatWrite16) {
+            let _infallible = write!(write, "{}", self.0);
+        }
+
+        /// Writes the string as UTF-16, or returns `None` if it is empty.
+        #[diplomat::cfg(supports = utf16_writes)]
+        pub fn get_str16_nonempty(&self, write: &mut DiplomatWrite16) -> Option<()> {
+            if self.0.is_empty() {
+                return None;
+            }
+            let _infallible = write!(write, "{}", self.0);
+            Some(())
         }
 
         #[diplomat::attr(dotnet, disable)]

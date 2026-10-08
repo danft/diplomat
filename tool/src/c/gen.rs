@@ -337,6 +337,13 @@ impl<'tcx> ItemGenContext<'_, 'tcx, '_> {
                 ));
                 "void".into()
             }
+            ReturnType::Infallible(SuccessType::Write16) => {
+                param_decls.push((
+                    format!("{}*", self.formatter.fmt_write16_name()).into(),
+                    "write".into(),
+                ));
+                "void".into()
+            }
             ReturnType::Infallible(SuccessType::OutType(ref o)) => self.gen_ty_name(o, header),
             ReturnType::Fallible(ref ok, _) | ReturnType::Nullable(ref ok) => {
                 // Result<T, ()> and Option<T> are the same on the ABI
@@ -349,6 +356,13 @@ impl<'tcx> ItemGenContext<'_, 'tcx, '_> {
                     SuccessType::Write => {
                         param_decls.push((
                             format!("{}*", self.formatter.fmt_write_name()).into(),
+                            "write".into(),
+                        ));
+                        None
+                    }
+                    SuccessType::Write16 => {
+                        param_decls.push((
+                            format!("{}*", self.formatter.fmt_write16_name()).into(),
                             "write".into(),
                         ));
                         None

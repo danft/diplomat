@@ -30,6 +30,13 @@ inline {##}
     std::string output;
     {{fmt.lib_name_ns_prefix}}diplomat::capi::DiplomatWrite write = {{fmt.lib_name_ns_prefix}}diplomat::WriteFromString(output);
     {%- endif %}
+    {%- else if m.method.output.is_write16() %}
+    {%- if is_generic_writeable %}
+    {{fmt.lib_name_ns_prefix}}diplomat::capi::DiplomatWrite16 write = {{fmt.lib_name_ns_prefix}}diplomat::Write16Trait<W>::Construct(writeable);
+    {%- else %}
+    std::u16string output;
+    {{fmt.lib_name_ns_prefix}}diplomat::capi::DiplomatWrite16 write = {{fmt.lib_name_ns_prefix}}diplomat::WriteFromU16String(output);
+    {%- endif %}
     {%- endif %}
     {% for p in m.param_pre_conversions -%}
     {{p}}

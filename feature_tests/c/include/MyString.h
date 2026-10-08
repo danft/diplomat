@@ -28,6 +28,11 @@ void MyString_set_str(MyString* self, DiplomatStringView new_str);
 
 void MyString_get_str(const MyString* self, DiplomatWrite* write);
 
+void MyString_get_str16(const MyString* self, DiplomatWrite16* write);
+
+typedef struct MyString_get_str16_nonempty_result { bool is_ok;} MyString_get_str16_nonempty_result;
+MyString_get_str16_nonempty_result MyString_get_str16_nonempty(const MyString* self, DiplomatWrite16* write);
+
 DiplomatStringView MyString_get_static_str(void);
 
 void MyString_string_transform(DiplomatStringView foo, DiplomatWrite* write);

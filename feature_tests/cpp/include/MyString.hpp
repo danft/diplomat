@@ -31,6 +31,11 @@ namespace capi {
 
     void MyString_get_str(const somelib::capi::MyString* self, somelib::diplomat::capi::DiplomatWrite* write);
 
+    void MyString_get_str16(const somelib::capi::MyString* self, somelib::diplomat::capi::DiplomatWrite16* write);
+
+    typedef struct MyString_get_str16_nonempty_result { bool is_ok;} MyString_get_str16_nonempty_result;
+    MyString_get_str16_nonempty_result MyString_get_str16_nonempty(const somelib::capi::MyString* self, somelib::diplomat::capi::DiplomatWrite16* write);
+
     somelib::diplomat::capi::DiplomatStringView MyString_get_static_str(void);
 
     void MyString_string_transform(somelib::diplomat::capi::DiplomatStringView foo, somelib::diplomat::capi::DiplomatWrite* write);
@@ -89,6 +94,35 @@ inline void somelib::MyString::get_str_write(W& writeable) const {
     somelib::diplomat::capi::DiplomatWrite write = somelib::diplomat::WriteTrait<W>::Construct(writeable);
     somelib::capi::MyString_get_str(this->AsFFI(),
         &write);
+}
+
+inline std::u16string somelib::MyString::get_str16() const {
+    std::u16string output;
+    somelib::diplomat::capi::DiplomatWrite16 write = somelib::diplomat::WriteFromU16String(output);
+    somelib::capi::MyString_get_str16(this->AsFFI(),
+        &write);
+    return output;
+}
+template<typename W>
+inline void somelib::MyString::get_str16_write(W& writeable) const {
+    somelib::diplomat::capi::DiplomatWrite16 write = somelib::diplomat::Write16Trait<W>::Construct(writeable);
+    somelib::capi::MyString_get_str16(this->AsFFI(),
+        &write);
+}
+
+inline std::optional<std::u16string> somelib::MyString::get_str16_nonempty() const {
+    std::u16string output;
+    somelib::diplomat::capi::DiplomatWrite16 write = somelib::diplomat::WriteFromU16String(output);
+    auto result = somelib::capi::MyString_get_str16_nonempty(this->AsFFI(),
+        &write);
+    return result.is_ok ? std::optional<std::u16string>(std::move(output)) : std::nullopt;
+}
+template<typename W>
+inline std::optional<std::monostate> somelib::MyString::get_str16_nonempty_write(W& writeable) const {
+    somelib::diplomat::capi::DiplomatWrite16 write = somelib::diplomat::Write16Trait<W>::Construct(writeable);
+    auto result = somelib::capi::MyString_get_str16_nonempty(this->AsFFI(),
+        &write);
+    return result.is_ok ? std::optional<std::monostate>() : std::nullopt;
 }
 
 inline std::string_view somelib::MyString::get_static_str() {

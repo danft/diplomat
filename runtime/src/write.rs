@@ -268,3 +268,140 @@ pub unsafe extern "C" fn diplomat_buffer_write_destroy(this: *mut DiplomatWrite)
     drop(vec);
     drop(this);
 }
+
+/// An object that one can write UTF-16 strings to.
+///
+/// This is the UTF-16 counterpart of [`DiplomatWrite`], and has an identical layout
+/// and contract, except that `buf` points to `u16` code units and `len`/`cap` (as well as
+/// the capacity requested by `grow()`) are measured in code units rather than bytes.
+///
+/// This allows the C API to write to arbitrary kinds of UTF-16 objects, for example a
+/// C++ `std::u16string` or a `char16_t` buffer.
+///
+/// # Safety invariants:
+///  - `flush()` and `grow()` will be passed `self` including `context` and it should always be safe to do so.
+///    `context` may be  null, however `flush()` and `grow()` must then be ready to receive it as such.
+///  - `buf` must be a valid, properly aligned pointer to `cap` `u16`s of memory
+///  - `buf` must point to `len` consecutive properly initialized `u16`s
+///  - `cap * 2` must be less than or equal to isize::MAX
+///  - `grow()` must either return false or update `buf` and `cap` for a valid buffer
+///    of at least the requested buffer size (in code units).
+///  - If grow_failed is true all safety invariants on buf/cap/len MUST still hold.
+///  - `DiplomatWrite16::flush()` will be automatically called by Diplomat. `flush()` might also be called
+///    (erroneously) on the Rust side (it's a public method), so it must be idempotent.
+#[repr(C)]
+pub struct DiplomatWrite16 {
+    /// Context pointer for additional data needed by `grow()` and `flush()`. May be `null`.
+    ///
+    /// The pointer may reference structured data on the foreign side,
+    /// such as C++ std::u16string, used to reallocate buf.
+    context: *mut c_void,
+    /// The raw UTF-16 buffer, which will be mutated on the Rust side.
+    buf: *mut u16,
+    /// The current filled size of the buffer, in code units
+    len: usize,
+    /// The current capacity of the buffer, in code units
+    cap: usize,
+    /// Set to true if `grow` ever fails.
+    grow_failed: bool,
+    /// Called by Rust to indicate that there is no more data to write.
+    ///
+    /// May be called multiple times.
+    ///
+    /// Arguments:
+    /// - `self` (`*mut DiplomatWrite16`): This `DiplomatWrite16`
+    flush: extern "C" fn(*mut DiplomatWrite16),
+    /// Called by Rust to request more capacity in the buffer. The implementation should allocate a new
+    /// buffer and copy the contents of the old buffer into the new buffer, updating `self.buf` and `self.cap`
+    ///
+    /// Arguments:
+    /// - `self` (`*mut DiplomatWrite16`): This `DiplomatWrite16`
+    /// - `capacity` (`usize`): The requested capacity, in code units.
+    ///
+    /// Returns: `true` if the allocation succeeded. Should not update any state if it failed.
+    grow: extern "C" fn(*mut DiplomatWrite16, usize) -> bool,
+}
+
+impl DiplomatWrite16 {
+    /// Call this function before releasing the buffer to C
+    pub fn flush(&mut self) {
+        (self.flush)(self);
+    }
+
+    /// Returns the code units written so far.
+    ///
+    /// If growth has failed, this returns what has been written so far.
+    pub fn as_u16s(&self) -> &[u16] {
+        if self.buf.is_null() {
+            return &[];
+        }
+        debug_assert!(self.len <= self.cap);
+        // Safety: see the safety invariants on this type: `buf` is a valid, non-null,
+        // aligned pointer to `len` initialized code units, and its total size is no larger
+        // than isize::MAX.
+        unsafe { core::slice::from_raw_parts(self.buf, self.len) }
+    }
+
+    /// Ensures there is room for `additional` more code units, growing if necessary.
+    ///
+    /// Returns `false` (and sets `grow_failed`) if growth failed or has previously failed.
+    fn reserve(&mut self, additional: usize) -> bool {
+        if self.grow_failed {
+            return false;
+        }
+        let Some(needed_len) = self.len.checked_add(additional) else {
+            self.grow_failed = true;
+            return false;
+        };
+        if needed_len > self.cap {
+            let success = (self.grow)(self, needed_len);
+            if !success {
+                self.grow_failed = true;
+                return false;
+            }
+        }
+        debug_assert!(needed_len <= self.cap);
+        true
+    }
+
+    /// Writes raw UTF-16 code units to the buffer.
+    ///
+    /// No validation is performed; it is the caller's responsibility to write well-formed UTF-16
+    /// if that is what the foreign side expects.
+    pub fn write_u16s(&mut self, s: &[u16]) {
+        if !self.reserve(s.len()) {
+            return;
+        }
+        // Safety: `reserve` guarantees `buf` has room for `len + s.len()` code units.
+        unsafe {
+            ptr::copy_nonoverlapping(s.as_ptr(), self.buf.add(self.len), s.len());
+        }
+        self.len += s.len();
+    }
+}
+
+impl fmt::Write for DiplomatWrite16 {
+    fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
+        // A UTF-8 string never has more UTF-16 code units than it has bytes,
+        // so reserving `s.len()` is always sufficient.
+        if !self.reserve(s.len()) {
+            return Ok(());
+        }
+        let mut len = self.len;
+        for unit in s.encode_utf16() {
+            debug_assert!(len < self.cap);
+            // Safety: `reserve` guarantees room for `self.len + s.len()` code units,
+            // and `s.encode_utf16().count() <= s.len()`.
+            unsafe { ptr::write(self.buf.add(len), unit) };
+            len += 1;
+        }
+        self.len = len;
+        Ok(())
+    }
+
+    fn write_char(&mut self, c: char) -> Result<(), fmt::Error> {
+        let mut units = [0u16; 2];
+        self.write_u16s(c.encode_utf16(&mut units));
+        Ok(())
+    }
+}

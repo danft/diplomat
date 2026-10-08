@@ -15,7 +15,7 @@
 //!    - Unvalidated UTF-16: [`DiplomatStr16Slice<'a>`] (`&'a [u16]`), [`DiplomatOwnedStr16Slice`]  (`Box<[u16]>`)
 //!    - Validated UTF-8: [`DiplomatUtf8StrSlice<'a>`] (`&'a str`), [`DiplomatOwnedUTF8StrSlice`] (`Box<str>`)
 //!    - Unvalidated stringy DSTs: [`DiplomatStr`] (`[u8]`), [`DiplomatStr16`] (`[u16]`), for convenient use with `&` and `Box` as function parameters.
-//! - **String output**: [`DiplomatWrite`]
+//! - **String output**: [`DiplomatWrite`] (UTF-8), [`DiplomatWrite16`] (UTF-16)
 //! - **Callbacks**: [`DiplomatCallback<ReturnType>`] (FFI-safe callback handle).
 //! - **Scalars**: [`DiplomatChar`] (`u32`) and [`DiplomatByte`] (`u8`).
 //!
@@ -38,10 +38,10 @@ use alloc::alloc::Layout;
 mod wasm_glue;
 
 mod write;
-pub use write::DiplomatWrite;
 pub use write::{
     diplomat_buffer_write_create, diplomat_buffer_write_destroy, diplomat_simple_write,
 };
+pub use write::{DiplomatWrite, DiplomatWrite16};
 mod slices;
 pub use slices::{
     DiplomatOwnedSlice, DiplomatOwnedStr16Slice, DiplomatOwnedStrSlice, DiplomatOwnedUTF8StrSlice,

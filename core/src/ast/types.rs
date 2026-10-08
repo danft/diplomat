@@ -541,6 +541,8 @@ pub enum TypeName {
     /// A `Result<T, E>` or `diplomat_runtime::DiplomatResult` type.
     Result(Box<TypeName>, Box<TypeName>, StdlibOrDiplomat),
     Write,
+    /// A [`diplomat_runtime::DiplomatWrite16`], the UTF-16 counterpart of [`TypeName::Write`].
+    Write16,
     /// A `&DiplomatStr` or `Box<DiplomatStr>` type.
     /// Owned strings don't have a lifetime.
     ///
@@ -688,7 +690,7 @@ impl TypeName {
             // These are specified using FFI-safe diplomat_runtime types
             TypeName::StrReference(.., StdlibOrDiplomat::Diplomat) | TypeName::StrSlice(.., StdlibOrDiplomat::Diplomat) |TypeName::PrimitiveSlice(.., StdlibOrDiplomat::Diplomat) | TypeName::CustomTypeSlice(..) => true,
             // These are special anyway and shouldn't show up in structs
-            TypeName::Unit | TypeName::Write | TypeName::Result(..) |
+            TypeName::Unit | TypeName::Write | TypeName::Write16 | TypeName::Result(..) |
             // This is basically only useful in return types
             TypeName::Ordering |
             // These are specified using Rust stdlib types and not safe across FFI
@@ -791,6 +793,9 @@ impl TypeName {
             TypeName::Write => {
                 syn::parse_quote_spanned!(Span::call_site() => diplomat_runtime::DiplomatWrite)
             }
+            TypeName::Write16 => {
+                syn::parse_quote_spanned!(Span::call_site() => diplomat_runtime::DiplomatWrite16)
+            }
             TypeName::StrReference(lt, encoding, is_stdlib_type) => {
                 if *is_stdlib_type == StdlibOrDiplomat::Stdlib {
                     encoding.get_stdlib_slice_type(lt)
@@ -849,6 +854,7 @@ impl TypeName {
     /// - If the type is a path with a single element [`Result`], returns a [`TypeName::Result`] with the type parameters recursively converted
     /// - If the type is a path equal to [`diplomat_runtime::DiplomatResult`], returns a [`TypeName::DiplomatResult`] with the type parameters recursively converted
     /// - If the type is a path equal to [`diplomat_runtime::DiplomatWrite`], returns a [`TypeName::Write`]
+    /// - If the type is a path equal to [`diplomat_runtime::DiplomatWrite16`], returns a [`TypeName::Write16`]
     /// - If the type is a owned or borrowed string type, returns a [`TypeName::StrReference`]
     /// - If the type is a owned or borrowed slice of a Rust primitive, returns a [`TypeName::PrimitiveSlice`]
     /// - If the type is a reference (`&` or `&mut`), returns a [`TypeName::Reference`] with the referenced type recursively converted
@@ -1228,6 +1234,8 @@ impl TypeName {
                     }
                 } else if is_runtime_type(p, "DiplomatWrite") {
                     TypeName::Write
+                } else if is_runtime_type(p, "DiplomatWrite16") {
+                    TypeName::Write16
                 } else {
                     TypeName::Named(p.spanned_into(module_location))
                 }
@@ -1534,6 +1542,7 @@ impl fmt::Display for TypeName {
                 write!(f, "Result<{ok}, {err}>")
             }
             TypeName::Write => "DiplomatWrite".fmt(f),
+            TypeName::Write16 => "DiplomatWrite16".fmt(f),
             TypeName::StrReference(lt, encoding, is_stdlib_type) => {
                 if let Some(lt) = lt {
                     if *is_stdlib_type == StdlibOrDiplomat::Stdlib {

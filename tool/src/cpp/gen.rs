@@ -854,7 +854,7 @@ impl<'ccx, 'tcx: 'ccx> ItemGenContext<'ccx, 'tcx, '_> {
         // `template<typename W> void foo_write(W& writeable)` where `W` is a `WriteTrait`
         // implementor. The generic method needs its own return type and conversion code.
         let mut writeable_info = None;
-        if method.output.is_write() {
+        if method.output.is_any_write() {
             cpp_to_c_params.push("&write".into());
             let mut return_ty = self.gen_cpp_return_type_name(&method.output, true);
 
@@ -1404,13 +1404,21 @@ impl<'ccx, 'tcx: 'ccx> ItemGenContext<'ccx, 'tcx, '_> {
         let lib_name_ns_prefix = &self.formatter.lib_name_ns_prefix;
         match *result_ty {
             ReturnType::Infallible(SuccessType::Unit) => "void".into(),
-            ReturnType::Infallible(SuccessType::Write) if is_generic_write => "void".into(),
+            ReturnType::Infallible(SuccessType::Write | SuccessType::Write16)
+                if is_generic_write =>
+            {
+                "void".into()
+            }
             ReturnType::Infallible(SuccessType::Write) => self.formatter.fmt_owned_str(),
+            ReturnType::Infallible(SuccessType::Write16) => self.formatter.fmt_owned_str16(),
             ReturnType::Infallible(SuccessType::OutType(ref o)) => self.gen_type_name(o),
             ReturnType::Fallible(ref ok, ref err) => {
                 let ok_type_name = match ok {
-                    SuccessType::Write if is_generic_write => "std::monostate".into(),
+                    SuccessType::Write | SuccessType::Write16 if is_generic_write => {
+                        "std::monostate".into()
+                    }
                     SuccessType::Write => self.formatter.fmt_owned_str(),
+                    SuccessType::Write16 => self.formatter.fmt_owned_str16(),
                     SuccessType::Unit => "std::monostate".into(),
                     SuccessType::OutType(o) => self.gen_type_name(o),
                     _ => unreachable!("unknown AST/HIR variant"),
@@ -1424,8 +1432,11 @@ impl<'ccx, 'tcx: 'ccx> ItemGenContext<'ccx, 'tcx, '_> {
             }
             ReturnType::Nullable(ref ty) => {
                 let type_name = match ty {
-                    SuccessType::Write if is_generic_write => "std::monostate".into(),
+                    SuccessType::Write | SuccessType::Write16 if is_generic_write => {
+                        "std::monostate".into()
+                    }
                     SuccessType::Write => self.formatter.fmt_owned_str(),
+                    SuccessType::Write16 => self.formatter.fmt_owned_str16(),
                     SuccessType::Unit => "std::monostate".into(),
                     SuccessType::OutType(o) => self.gen_type_name(o),
                     _ => unreachable!("unknown AST/HIR variant"),
@@ -1571,15 +1582,24 @@ impl<'ccx, 'tcx: 'ccx> ItemGenContext<'ccx, 'tcx, '_> {
         let lib_name_ns_prefix = &self.formatter.lib_name_ns_prefix;
         match *result_ty {
             ReturnType::Infallible(SuccessType::Unit) => None,
-            ReturnType::Infallible(SuccessType::Write) if is_generic_write => None,
-            ReturnType::Infallible(SuccessType::Write) => Some("std::move(output)".into()),
+            ReturnType::Infallible(SuccessType::Write | SuccessType::Write16)
+                if is_generic_write =>
+            {
+                None
+            }
+            ReturnType::Infallible(SuccessType::Write | SuccessType::Write16) => {
+                Some("std::move(output)".into())
+            }
             ReturnType::Infallible(SuccessType::OutType(ref out_ty)) => {
                 Some(self.gen_c_to_cpp_for_type(out_ty, var_name))
             }
             ReturnType::Fallible(ref ok, ref err) => {
                 let ok_type_name = match ok {
-                    SuccessType::Write if is_generic_write => "std::monostate".into(),
+                    SuccessType::Write | SuccessType::Write16 if is_generic_write => {
+                        "std::monostate".into()
+                    }
                     SuccessType::Write => self.formatter.fmt_owned_str(),
+                    SuccessType::Write16 => self.formatter.fmt_owned_str16(),
                     SuccessType::Unit => "std::monostate".into(),
                     SuccessType::OutType(ref o) => self.gen_type_name(o),
                     _ => unreachable!("unknown AST/HIR variant"),
@@ -1589,9 +1609,9 @@ impl<'ccx, 'tcx: 'ccx> ItemGenContext<'ccx, 'tcx, '_> {
                     None => "std::monostate".into(),
                 };
                 let ok_conversion = match ok {
-                    SuccessType::Write if is_generic_write => "".into(),
+                    SuccessType::Write | SuccessType::Write16 if is_generic_write => "".into(),
                     // Note: the `output` variable is a string initialized in the template
-                    SuccessType::Write => "std::move(output)".into(),
+                    SuccessType::Write | SuccessType::Write16 => "std::move(output)".into(),
                     SuccessType::Unit => "".into(),
                     SuccessType::OutType(ref o) => {
                         self.gen_c_to_cpp_for_type(o, format!("{var_name}.ok").into())
@@ -1608,17 +1628,20 @@ impl<'ccx, 'tcx: 'ccx> ItemGenContext<'ccx, 'tcx, '_> {
             }
             ReturnType::Nullable(ref ty) => {
                 let type_name = match ty {
-                    SuccessType::Write if is_generic_write => "std::monostate".into(),
+                    SuccessType::Write | SuccessType::Write16 if is_generic_write => {
+                        "std::monostate".into()
+                    }
                     SuccessType::Write => self.formatter.fmt_owned_str(),
+                    SuccessType::Write16 => self.formatter.fmt_owned_str16(),
                     SuccessType::Unit => "std::monostate".into(),
                     SuccessType::OutType(o) => self.gen_type_name(o),
                     _ => unreachable!("unknown AST/HIR variant"),
                 };
 
                 let conversion = match ty {
-                    SuccessType::Write if is_generic_write => "".into(),
+                    SuccessType::Write | SuccessType::Write16 if is_generic_write => "".into(),
                     // Note: the `output` variable is a string initialized in the template
-                    SuccessType::Write => "std::move(output)".into(),
+                    SuccessType::Write | SuccessType::Write16 => "std::move(output)".into(),
                     SuccessType::Unit => "".into(),
                     SuccessType::OutType(ref o) => {
                         self.gen_c_to_cpp_for_type(o, format!("{var_name}.ok").into())

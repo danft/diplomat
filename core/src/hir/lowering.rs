@@ -619,10 +619,7 @@ impl<'ast> LoweringContext<'ast> {
             self,
         )?);
 
-        let (ast_params, takes_write) = match ast_function.item.params.split_last() {
-            Some((last, remaining)) if last.is_write() => (remaining, true),
-            _ => (&ast_function.item.params[..], false),
-        };
+        let (ast_params, takes_write) = self.split_write_param(&ast_function.item.params)?;
 
         let attrs = self.attr_validator.attr_from_ast(
             &ast_function.item.attrs,
@@ -777,10 +774,7 @@ impl<'ast> LoweringContext<'ast> {
     ) -> Result<Method, ()> {
         let name = self.lower_ident(&method.name, "method name");
 
-        let (ast_params, takes_write) = match method.params.split_last() {
-            Some((last, remaining)) if last.is_write() => (remaining, true),
-            _ => (&method.params[..], false),
-        };
+        let (ast_params, takes_write) = self.split_write_param(&method.params)?;
 
         let self_param_ltl = SelfParamLifetimeLowerer::new(&method.lifetime_env, self)?;
 
@@ -1208,9 +1202,9 @@ impl<'ast> LoweringContext<'ast> {
                 ));
                 Err(())
             }
-            ast::TypeName::Write => {
+            ast::TypeName::Write | ast::TypeName::Write16 => {
                 self.errors.push(LoweringError::Other(
-                    "DiplomatWrite can only appear as the last parameter of a method".into(),
+                    "DiplomatWrite/DiplomatWrite16 can only appear as the last parameter of a method".into(),
                 ));
                 Err(())
             }
@@ -1629,9 +1623,9 @@ impl<'ast> LoweringContext<'ast> {
                 ));
                 Err(())
             }
-            ast::TypeName::Write => {
+            ast::TypeName::Write | ast::TypeName::Write16 => {
                 self.errors.push(LoweringError::Other(
-                    "DiplomatWrite can only appear as the last parameter of a method".into(),
+                    "DiplomatWrite/DiplomatWrite16 can only appear as the last parameter of a method".into(),
                 ));
                 Err(())
             }
@@ -1961,6 +1955,29 @@ impl<'ast> LoweringContext<'ast> {
         Ok(Param::new(name?, ty?, attrs))
     }
 
+    /// Splits off a trailing `&mut DiplomatWrite` / `&mut DiplomatWrite16` parameter, if present.
+    ///
+    /// Returns the remaining parameters, along with the [`SuccessType`] the write corresponds to
+    /// ([`SuccessType::Write`] or [`SuccessType::Write16`]), if there was one.
+    fn split_write_param<'p>(
+        &mut self,
+        params: &'p [ast::Param],
+    ) -> Result<(&'p [ast::Param], Option<SuccessType>), ()> {
+        match params.split_last() {
+            Some((last, remaining)) if last.is_write16() => {
+                if !self.attr_validator.attrs_supported().utf16_writes {
+                    self.errors.push(LoweringError::Other(
+                        "DiplomatWrite16 is not supported by this backend. Try #[diplomat::cfg(supports = utf16_writes)].".into(),
+                    ));
+                    return Err(());
+                }
+                Ok((remaining, Some(SuccessType::Write16)))
+            }
+            Some((last, remaining)) if last.is_write() => Ok((remaining, Some(SuccessType::Write))),
+            _ => Ok((params, None)),
+        }
+    }
+
     /// Lowers many [`ast::Param`]s into a vector of [`hir::Param`]s.
     ///
     /// If there are any errors, they're pushed to `errors` and `None` is returned.
@@ -2082,15 +2099,11 @@ impl<'ast> LoweringContext<'ast> {
     fn lower_return_type(
         &mut self,
         return_type: Option<&ast::TypeName>,
-        takes_write: bool,
+        takes_write: Option<SuccessType>,
         mut return_ltl: ReturnLifetimeLowerer<'_>,
         in_path: &ast::Path,
     ) -> Result<(ReturnType, LifetimeEnv), ()> {
-        let write_or_unit = if takes_write {
-            SuccessType::Write
-        } else {
-            SuccessType::Unit
-        };
+        let write_or_unit = takes_write.unwrap_or(SuccessType::Unit);
         match return_type.unwrap_or(&ast::TypeName::Unit) {
             ast::TypeName::Result(ok_ty, err_ty, _) => {
                 self.maybe_error_on_option_result(return_type.unwrap_or(&ast::TypeName::Unit))?;

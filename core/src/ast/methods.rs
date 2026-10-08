@@ -201,6 +201,7 @@ impl Method {
     /// To qualify, a method must:
     ///  - not return any value
     ///  - have the last argument be an `&mut diplomat_runtime::DiplomatWrite`
+    ///    (or `&mut diplomat_runtime::DiplomatWrite16`)
     ///
     /// Typically, methods of this form will be transformed in the bindings to a
     /// method that doesn't take the write as an argument but instead creates
@@ -336,10 +337,20 @@ pub struct Param {
 }
 
 impl Param {
-    /// Check if this parameter is a Write
+    /// Check if this parameter is a Write (either a `DiplomatWrite` or a `DiplomatWrite16`)
     pub fn is_write(&self) -> bool {
         match self.ty {
-            TypeName::Reference(_, Mutability::Mutable, ref w) => **w == TypeName::Write,
+            TypeName::Reference(_, Mutability::Mutable, ref w) => {
+                matches!(**w, TypeName::Write | TypeName::Write16)
+            }
+            _ => false,
+        }
+    }
+
+    /// Check if this parameter is a UTF-16 Write (`DiplomatWrite16`)
+    pub fn is_write16(&self) -> bool {
+        match self.ty {
+            TypeName::Reference(_, Mutability::Mutable, ref w) => **w == TypeName::Write16,
             _ => false,
         }
     }

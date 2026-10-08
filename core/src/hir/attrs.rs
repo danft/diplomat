@@ -1344,6 +1344,8 @@ pub struct BackendAttrSupport {
     pub utf8_strings: bool,
     /// Whether the language uses UTF-16 strings
     pub utf16_strings: bool,
+    /// Whether the language supports writing UTF-16 strings via `DiplomatWrite16`
+    pub utf16_writes: bool,
     /// Whether the language supports using slices with 'static lifetimes.
     pub static_slices: bool,
 
@@ -1436,6 +1438,7 @@ impl BackendAttrSupport {
             method_overloading: true,
             utf8_strings: true,
             utf16_strings: true,
+            utf16_writes: true,
             static_slices: true,
             defaults: true,
 
@@ -1482,6 +1485,7 @@ impl BackendAttrSupport {
             "method_overloading" => Some(self.method_overloading),
             "utf8_strings" => Some(self.utf8_strings),
             "utf16_strings" => Some(self.utf16_strings),
+            "utf16_writes" => Some(self.utf16_writes),
             "static_slices" => Some(self.static_slices),
             "default" => Some(self.defaults),
             "constructors" => Some(self.constructors),
@@ -1637,6 +1641,7 @@ impl AttributeValidator for BasicAttributeValidator {
                 method_overloading,
                 utf8_strings,
                 utf16_strings,
+                utf16_writes,
                 static_slices,
                 defaults,
 
@@ -1680,6 +1685,7 @@ impl AttributeValidator for BasicAttributeValidator {
                 "method_overloading" => method_overloading,
                 "utf8_strings" => utf8_strings,
                 "utf16_strings" => utf16_strings,
+                "utf16_writes" => utf16_writes,
                 "static_slices" => static_slices,
                 "defaults" => defaults,
 

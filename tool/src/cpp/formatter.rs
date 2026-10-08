@@ -278,6 +278,10 @@ impl<'tcx> Cpp2Formatter<'tcx> {
         "std::string".into()
     }
 
+    pub fn fmt_owned_str16(&self) -> Cow<'static, str> {
+        "std::u16string".into()
+    }
+
     pub fn fmt_docs(&self, docs: &hir::Docs, attrs: &hir::Attrs) -> String {
         let mut docs = self.c.fmt_docs(docs);
         if let Some(deprecated) = attrs.deprecated.as_ref() {
